@@ -27,12 +27,29 @@ jobs:
             C:\vcpkg\buildtrees
           key: vcpkg-jansson-${{ runner.os }}-x64
 
-      - name: Install jansson via vcpkg (classic mode)
+      - name: Reemplazar vcpkg.json de bareos con dependencias minimas
         shell: pwsh
         run: |
-          # --classic fuerza classic mode aunque exista vcpkg.json en el directorio
-          vcpkg install jansson:x64-windows --classic
-          Write-Host "jansson installed"
+          # El vcpkg.json de bareos incluye Qt, Postgres, etc. que no necesitamos.
+          # Lo reemplazamos con solo lo necesario para compilar bareos-lib + hyper-v-fd.
+          @'
+          {
+            "name": "hyperv-plugin-build",
+            "dependencies": [
+              "jansson",
+              "openssl",
+              "zlib",
+              "lzo"
+            ]
+          }
+          '@ | Set-Content vcpkg.json
+          Write-Host "vcpkg.json reemplazado"
+
+      - name: Install dependencies via vcpkg (manifest mode)
+        shell: pwsh
+        run: |
+          vcpkg install --triplet x64-windows
+          Write-Host "dependencies installed"
 
       - name: Cache CMake build
         uses: actions/cache@v4
