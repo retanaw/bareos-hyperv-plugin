@@ -1,0 +1,80 @@
+name: Build hyper-v-fd.dll
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: windows-2022
+
+    steps:
+      - name: Checkout bareos/bareos (shallow)
+        uses: actions/checkout@v4
+        with:
+          repository: bareos/bareos
+          ref: master
+          fetch-depth: 1
+
+      # Cache vcpkg packages across runs (saves ~15 min on repeated builds)
+      - name: Cache vcpkg
+        uses: actions/cache@v4
+        with:
+          path: |
+            C:\vcpkg\installed
+            C:\vcpkg\packages
+            C:\vcpkg\buildtrees
+          key: vcpkg-jansson-${{ runner.os }}-x64
+
+      - name: Install jansson via vcpkg (classic mode)
+        shell: pwsh
+        run: |
+          # Use classic mode to install only what we need, skip Qt/Postgres/etc.
+          vcpkg install jansson:x64-windows --no-binarycaching
+          Write-Host "jansson installed"
+
+      - name: Cache CMake build
+        uses: actions/cache@v4
+        with:
+          path: build
+          key: cmake-build-${{ hashFiles('core/src/win32/plugins/filed/hyper-v.cc', 'core/src/win32/plugins/filed/CMakeLists.txt') }}
+          restore-keys: cmake-build-
+
+      - name: Configure CMake
+        shell: pwsh
+        run: |
+          cmake -B build -S . `
+            -G "Visual Studio 17 2022" -A x64 `
+            -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET="x64-windows" `
+            -DENABLE_PYTHON=OFF `
+            -DENABLE_BARRI=OFF `
+            -DENABLE_TESTING=OFF `
+            -DENABLE_GRPC=OFF `
+            -DCMAKE_BUILD_TYPE=Release
+
+      - name: Build hyper-v-fd target
+        shell: pwsh
+        run: |
+          cmake --build build --target hyper-v-fd --config Release -- /m
+
+      - name: Find and collect DLL
+        shell: pwsh
+        run: |
+          $dll = Get-ChildItem -Recurse -Path build -Filter "hyper-v-fd.dll" | Select-Object -First 1
+          if (-not $dll) {
+            Write-Error "hyper-v-fd.dll not found in build output"
+            exit 1
+          }
+          Write-Host "Found: $($dll.FullName)"
+          New-Item -ItemType Directory -Force -Path artifact
+          Copy-Item $dll.FullName artifact\
+
+      - name: Upload hyper-v-fd.dll
+        uses: actions/upload-artifact@v4
+        with:
+          name: hyper-v-fd-${{ github.run_number }}
+          path: artifact\hyper-v-fd.dll
+          if-no-files-found: error
+          retention-days: 90
