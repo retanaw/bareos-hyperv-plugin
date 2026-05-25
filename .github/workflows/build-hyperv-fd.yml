@@ -27,29 +27,19 @@ jobs:
             C:\vcpkg\buildtrees
           key: vcpkg-jansson-${{ runner.os }}-x64
 
-      - name: Reemplazar vcpkg.json de bareos con dependencias minimas
+      - name: Reemplazar vcpkg.json con deps minimas
         shell: pwsh
         run: |
-          # El vcpkg.json de bareos incluye Qt, Postgres, etc. que no necesitamos.
-          # Lo reemplazamos con solo lo necesario para compilar bareos-lib + hyper-v-fd.
-          @'
-          {
-            "name": "hyperv-plugin-build",
-            "dependencies": [
-              "jansson",
-              "openssl",
-              "zlib",
-              "lzo"
-            ]
-          }
-          '@ | Set-Content vcpkg.json
-          Write-Host "vcpkg.json reemplazado"
+          $content = '{"name":"hyperv-plugin-build","dependencies":["jansson","openssl","zlib","lzo"]}'
+          Set-Content -Path vcpkg.json -Value $content
+          Write-Host "vcpkg.json reemplazado:"
+          Get-Content vcpkg.json
 
-      - name: Install dependencies via vcpkg (manifest mode)
+      - name: Install dependencies via vcpkg
         shell: pwsh
         run: |
           vcpkg install --triplet x64-windows
-          Write-Host "dependencies installed"
+          Write-Host "OK: vcpkg dependencies installed"
 
       - name: Cache CMake build
         uses: actions/cache@v4
