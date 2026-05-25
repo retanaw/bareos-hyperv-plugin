@@ -30,8 +30,8 @@ jobs:
       - name: Install jansson via vcpkg (classic mode)
         shell: pwsh
         run: |
-          # Use classic mode to install only what we need, skip Qt/Postgres/etc.
-          vcpkg install jansson:x64-windows --no-binarycaching
+          # --classic fuerza classic mode aunque exista vcpkg.json en el directorio
+          vcpkg install jansson:x64-windows --classic
           Write-Host "jansson installed"
 
       - name: Cache CMake build
