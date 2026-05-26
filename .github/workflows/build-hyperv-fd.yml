@@ -15,7 +15,7 @@ jobs:
         with:
           path: plugin-repo
 
-      - name: Checkout bareos/bareos (headers + hyper-v.cc)
+      - name: Checkout bareos/bareos (headers + source)
         uses: actions/checkout@v4
         with:
           repository: bareos/bareos
@@ -28,13 +28,39 @@ jobs:
         with:
           arch: x64
 
-      - name: Configure CMake (standalone, no bareos build system)
+      # Run bareos cmake configure just to generate config.h and version headers.
+      # It will fail (bareos_add_plugin not defined on Windows) — that's expected.
+      # We only need the generated headers, not a successful configure.
+      - name: Generate bareos config.h (partial configure, failure expected)
         shell: pwsh
         run: |
-          cmake -B build -S plugin-repo `
-            -G Ninja `
+          $ts = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
+          cmake -B bareos-build -S bareos-src -G Ninja `
             "-DCMAKE_BUILD_TYPE=Release" `
-            "-DBAREOS_SRC=${{ github.workspace }}/bareos-src"
+            "-DGIT_DESCRIBE_VERSION=25.0.4" `
+            "-DGIT_COMMIT_TIMESTAMP=$ts" `
+            "-DENABLE_PYTHON=OFF" `
+            "-DENABLE_BARRI=OFF" `
+            "-DENABLE_TESTING=OFF" `
+            "-DENABLE_GRPC=OFF"
+          # cmake exits non-zero but config.h is already generated — ignore exit code
+          exit 0
+
+      - name: Verify config.h was generated
+        shell: pwsh
+        run: |
+          $h = "bareos-build\include\config.h"
+          if (-not (Test-Path $h)) { Write-Error "config.h not generated"; exit 1 }
+          Write-Host "config.h OK"
+          Get-Content $h | Select-Object -First 10
+
+      - name: Configure our standalone build
+        shell: pwsh
+        run: |
+          cmake -B build -S plugin-repo -G Ninja `
+            "-DCMAKE_BUILD_TYPE=Release" `
+            "-DBAREOS_SRC=${{ github.workspace }}\bareos-src" `
+            "-DBAREOS_BUILD=${{ github.workspace }}\bareos-build"
 
       - name: Build hyper-v-fd.dll
         shell: pwsh
