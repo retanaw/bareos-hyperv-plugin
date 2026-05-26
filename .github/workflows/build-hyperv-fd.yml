@@ -34,23 +34,18 @@ jobs:
       - name: Reemplazar vcpkg.json (sin Qt ni Postgres)
         shell: pwsh
         run: |
-          # Usamos todas las deps del bareos original excepto Qt, libpq, readline
-          # (esas son para WebUI y consola de Director, no para el plugin)
-          $content = @'
-{
-  "name": "hyperv-plugin-build",
-  "dependencies": [
-    { "name": "openssl", "default-features": false, "features": ["tools"] },
-    "lzo", "zlib", "jansson", "pthread",
-    "gtest", "utfcpp", "xxhash",
-    "tl-expected", "ms-gsl", "cli11", "pcre2", "fmt"
-  ],
-  "overrides": [{ "name": "cli11", "version-string": "2.4.2" }],
-  "builtin-baseline": "ec20452cd73280bac2952cf749d3caec5a237490"
-}
-'@
-          Set-Content -Path vcpkg.json -Value $content
-          Write-Host "vcpkg.json:" ; Get-Content vcpkg.json
+          $j = [ordered]@{
+            name = 'hyperv-plugin-build'
+            dependencies = @(
+              [ordered]@{ name='openssl'; 'default-features'=$false; features=@('tools') },
+              'lzo','zlib','jansson','pthread','utfcpp','xxhash',
+              'tl-expected','ms-gsl','cli11','pcre2','fmt','jansson'
+            )
+            overrides = @([ordered]@{ name='cli11'; 'version-string'='2.4.2' })
+            'builtin-baseline' = 'ec20452cd73280bac2952cf749d3caec5a237490'
+          }
+          $j | ConvertTo-Json -Depth 5 | Set-Content vcpkg.json
+          Write-Host "vcpkg.json:"; Get-Content vcpkg.json
 
       - name: Install dependencies via vcpkg
         shell: pwsh
