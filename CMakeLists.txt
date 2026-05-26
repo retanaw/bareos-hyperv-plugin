@@ -16,7 +16,7 @@ endif()
 add_library(hyper-v-fd SHARED "${PLUGIN_SRC}")
 
 target_include_directories(hyper-v-fd PRIVATE
-  "${BAREOS_BUILD}/include"           # generated: config.h, version.h
+  "${BAREOS_BUILD}"                   # generated: include/config.h, include/version.h
   "${BAREOS_SRC}/core/src"
   "${BAREOS_SRC}/core/src/include"
   "${BAREOS_SRC}/core/src/win32/include"
