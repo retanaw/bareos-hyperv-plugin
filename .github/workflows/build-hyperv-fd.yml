@@ -50,15 +50,15 @@ jobs:
           $ts = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
           cmake -B build -S . `
             -G Ninja `
-            -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
-            -DVCPKG_TARGET_TRIPLET=x64-windows `
-            -DGIT_DESCRIBE_VERSION=25.0.4 `
-            -DGIT_COMMIT_TIMESTAMP=$ts `
-            -DENABLE_PYTHON=OFF `
-            -DENABLE_BARRI=OFF `
-            -DENABLE_TESTING=OFF `
-            -DENABLE_GRPC=OFF
+            "-DCMAKE_BUILD_TYPE=Release" `
+            "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
+            "-DVCPKG_TARGET_TRIPLET=x64-windows" `
+            "-DGIT_DESCRIBE_VERSION=25.0.4" `
+            "-DGIT_COMMIT_TIMESTAMP=$ts" `
+            "-DENABLE_PYTHON=OFF" `
+            "-DENABLE_BARRI=OFF" `
+            "-DENABLE_TESTING=OFF" `
+            "-DENABLE_GRPC=OFF"
 
       - name: Build hyper-v-fd.dll
         shell: pwsh
