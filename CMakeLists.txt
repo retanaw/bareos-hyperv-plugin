@@ -14,6 +14,7 @@ if(NOT EXISTS "${BAREOS_BUILD}/include/config.h")
 endif()
 
 add_library(hyper-v-fd SHARED "${PLUGIN_SRC}")
+set_target_properties(hyper-v-fd PROPERTIES CXX_STANDARD 20 CXX_STANDARD_REQUIRED ON)
 
 target_include_directories(hyper-v-fd PRIVATE
   "${BAREOS_BUILD}"                   # generated: include/config.h
