@@ -10,7 +10,7 @@ jobs:
     runs-on: windows-2022
 
     steps:
-      - name: Checkout this repo (standalone CMakeLists.txt)
+      - name: Checkout this repo
         uses: actions/checkout@v4
         with:
           path: plugin-repo
@@ -28,33 +28,15 @@ jobs:
         with:
           arch: x64
 
-      # Run bareos cmake configure just to generate config.h and version headers.
-      # It will fail (bareos_add_plugin not defined on Windows) — that's expected.
-      # We only need the generated headers, not a successful configure.
-      - name: Generate bareos config.h (partial configure, failure expected)
+      - name: Generate config.h for Windows MSVC
         shell: pwsh
         run: |
-          $ts = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-          cmake -B bareos-build -S bareos-src -G Ninja `
-            "-DCMAKE_BUILD_TYPE=Release" `
-            "-DGIT_DESCRIBE_VERSION=25.0.4" `
-            "-DGIT_COMMIT_TIMESTAMP=$ts" `
-            "-DENABLE_PYTHON=OFF" `
-            "-DENABLE_BARRI=OFF" `
-            "-DENABLE_TESTING=OFF" `
-            "-DENABLE_GRPC=OFF"
-          # cmake exits non-zero but config.h is already generated — ignore exit code
-          exit 0
+          python plugin-repo/gen_config_h.py `
+            bareos-src/core/src/include/config.h.in `
+            bareos-build/include/config.h
+          Get-Content bareos-build/include/config.h | Select-Object -First 15
 
-      - name: Verify config.h was generated
-        shell: pwsh
-        run: |
-          $h = "bareos-build\include\config.h"
-          if (-not (Test-Path $h)) { Write-Error "config.h not generated"; exit 1 }
-          Write-Host "config.h OK"
-          Get-Content $h | Select-Object -First 10
-
-      - name: Configure our standalone build
+      - name: Configure CMake (standalone)
         shell: pwsh
         run: |
           cmake -B build -S plugin-repo -G Ninja `
