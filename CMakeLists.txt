@@ -20,6 +20,9 @@ target_include_directories(hyper-v-fd PRIVATE
   "${BAREOS_BUILD}"                   # generated: include/config.h
   "${BAREOS_SRC}/core/src"
   "${BAREOS_SRC}/core/src/include"
+  "${BAREOS_SRC}/core/src/filed"
+  "${BAREOS_SRC}/core/src/plugins"
+  "${BAREOS_SRC}/core/src/plugins/filed"
   "${BAREOS_SRC}/core/src/win32/include"
   "${BAREOS_SRC}/core/src/win32/compat/include"
   "C:/vcpkg/installed/x64-windows/include"   # pthreads, jansson
