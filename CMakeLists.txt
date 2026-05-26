@@ -16,11 +16,12 @@ endif()
 add_library(hyper-v-fd SHARED "${PLUGIN_SRC}")
 
 target_include_directories(hyper-v-fd PRIVATE
-  "${BAREOS_BUILD}"                   # generated: include/config.h, include/version.h
+  "${BAREOS_BUILD}"                   # generated: include/config.h
   "${BAREOS_SRC}/core/src"
   "${BAREOS_SRC}/core/src/include"
   "${BAREOS_SRC}/core/src/win32/include"
   "${BAREOS_SRC}/core/src/win32/compat/include"
+  "C:/vcpkg/installed/x64-windows/include"   # pthreads, jansson
 )
 
 target_link_libraries(hyper-v-fd PRIVATE
@@ -28,6 +29,8 @@ target_link_libraries(hyper-v-fd PRIVATE
   wbemuuid
   Shell32
   Pathcch
+  "C:/vcpkg/installed/x64-windows/lib/jansson.lib"
+  "C:/vcpkg/installed/x64-windows/lib/pthreadVC3.lib"
 )
 
 set_target_properties(hyper-v-fd PROPERTIES

@@ -28,6 +28,12 @@ jobs:
         with:
           arch: x64
 
+      - name: Install vcpkg deps (pthreads + jansson only)
+        shell: pwsh
+        run: |
+          vcpkg install pthreads:x64-windows jansson:x64-windows --no-binarycaching
+          Write-Host "vcpkg OK"
+
       - name: Generate config.h for Windows MSVC
         shell: pwsh
         run: |
