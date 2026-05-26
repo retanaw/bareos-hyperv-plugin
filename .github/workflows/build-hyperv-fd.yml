@@ -10,55 +10,31 @@ jobs:
     runs-on: windows-2022
 
     steps:
-      - name: Checkout bareos/bareos
+      - name: Checkout this repo (standalone CMakeLists.txt)
+        uses: actions/checkout@v4
+        with:
+          path: plugin-repo
+
+      - name: Checkout bareos/bareos (headers + hyper-v.cc)
         uses: actions/checkout@v4
         with:
           repository: bareos/bareos
           ref: master
           fetch-depth: 1
+          path: bareos-src
 
-      # Cache vcpkg — primera corrida ~45min, siguientes ~2min
-      - name: Cache vcpkg
-        uses: actions/cache@v4
-        with:
-          path: C:\vcpkg\installed
-          key: vcpkg-bareos-${{ hashFiles('vcpkg.json') }}-x64
-          restore-keys: vcpkg-bareos-
-
-      - name: Install vcpkg dependencies
-        shell: pwsh
-        run: |
-          vcpkg install --triplet x64-windows
-          Write-Host "vcpkg OK"
-
-      - name: Setup MSVC (Ninja requiere env de VS)
+      - name: Setup MSVC
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
-      # Cache del build — si los sources no cambian, reutiliza objetos compilados
-      - name: Cache CMake build
-        uses: actions/cache@v4
-        with:
-          path: build
-          key: cmake-${{ hashFiles('core/src/win32/plugins/filed/hyper-v.cc') }}
-          restore-keys: cmake-
-
-      - name: Configure CMake
+      - name: Configure CMake (standalone, no bareos build system)
         shell: pwsh
         run: |
-          $ts = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
-          cmake -B build -S . `
+          cmake -B build -S plugin-repo `
             -G Ninja `
             "-DCMAKE_BUILD_TYPE=Release" `
-            "-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
-            "-DVCPKG_TARGET_TRIPLET=x64-windows" `
-            "-DGIT_DESCRIBE_VERSION=25.0.4" `
-            "-DGIT_COMMIT_TIMESTAMP=$ts" `
-            "-DENABLE_PYTHON=OFF" `
-            "-DENABLE_BARRI=OFF" `
-            "-DENABLE_TESTING=OFF" `
-            "-DENABLE_GRPC=OFF"
+            "-DBAREOS_SRC=${{ github.workspace }}/bareos-src"
 
       - name: Build hyper-v-fd.dll
         shell: pwsh
