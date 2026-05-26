@@ -5,77 +5,54 @@ on:
   push:
     branches: [main]
 
-env:
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
-
 jobs:
   build:
     runs-on: windows-2022
 
     steps:
-      - name: Checkout bareos/bareos (shallow + tags)
+      - name: Checkout bareos/bareos
         uses: actions/checkout@v4
         with:
           repository: bareos/bareos
           ref: master
           fetch-depth: 1
-          fetch-tags: true
 
+      # Cache vcpkg — primera corrida ~45min, siguientes ~2min
       - name: Cache vcpkg
         uses: actions/cache@v4
         with:
-          path: |
-            C:\vcpkg\installed
-            C:\vcpkg\packages
-            C:\vcpkg\buildtrees
-          key: vcpkg-bareos-x64-${{ hashFiles('vcpkg.json') }}
-          restore-keys: vcpkg-bareos-x64-
+          path: C:\vcpkg\installed
+          key: vcpkg-bareos-${{ hashFiles('vcpkg.json') }}-x64
+          restore-keys: vcpkg-bareos-
 
-      - name: Reemplazar vcpkg.json (sin Qt ni Postgres)
-        shell: pwsh
-        run: |
-          $j = [ordered]@{
-            name = 'hyperv-plugin-build'
-            dependencies = @(
-              [ordered]@{ name='openssl'; 'default-features'=$false; features=@('tools') },
-              'lzo','zlib','jansson','pthread','utfcpp','xxhash',
-              'tl-expected','ms-gsl','cli11','pcre2','fmt','jansson'
-            )
-            overrides = @([ordered]@{ name='cli11'; 'version-string'='2.4.2' })
-            'builtin-baseline' = 'ec20452cd73280bac2952cf749d3caec5a237490'
-          }
-          $j | ConvertTo-Json -Depth 5 | Set-Content vcpkg.json
-          Write-Host "vcpkg.json:"; Get-Content vcpkg.json
-
-      - name: Install dependencies via vcpkg
+      - name: Install vcpkg dependencies
         shell: pwsh
         run: |
           vcpkg install --triplet x64-windows
-          Write-Host "OK: vcpkg done"
+          Write-Host "vcpkg OK"
 
-      - name: Setup MSVC environment (para Ninja)
+      - name: Setup MSVC (Ninja requiere env de VS)
         uses: ilammy/msvc-dev-cmd@v1
         with:
           arch: x64
 
+      # Cache del build — si los sources no cambian, reutiliza objetos compilados
       - name: Cache CMake build
         uses: actions/cache@v4
         with:
           path: build
-          key: cmake-ninja-${{ hashFiles('core/src/win32/plugins/filed/hyper-v.cc', 'core/src/win32/plugins/filed/CMakeLists.txt') }}
-          restore-keys: cmake-ninja-
+          key: cmake-${{ hashFiles('core/src/win32/plugins/filed/hyper-v.cc') }}
+          restore-keys: cmake-
 
-      - name: Configure CMake (Ninja single-config)
+      - name: Configure CMake
         shell: pwsh
         run: |
-          # GIT_DESCRIBE_VERSION activa el bloque de version en BareosExtractVersionInfo.cmake
-          # GIT_COMMIT_TIMESTAMP es requerido para las fechas del binario
-          $ts = [int][double]::Parse((Get-Date -UFormat %s))
+          $ts = [DateTimeOffset]::UtcNow.ToUnixTimeSeconds()
           cmake -B build -S . `
             -G Ninja `
-            -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET="x64-windows" `
             -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake `
+            -DVCPKG_TARGET_TRIPLET=x64-windows `
             -DGIT_DESCRIBE_VERSION=25.0.4 `
             -DGIT_COMMIT_TIMESTAMP=$ts `
             -DENABLE_PYTHON=OFF `
@@ -83,19 +60,18 @@ jobs:
             -DENABLE_TESTING=OFF `
             -DENABLE_GRPC=OFF
 
-      - name: Build hyper-v-fd
+      - name: Build hyper-v-fd.dll
         shell: pwsh
-        run: |
-          cmake --build build --target hyper-v-fd -j $env:NUMBER_OF_PROCESSORS
+        run: cmake --build build --target hyper-v-fd -j $env:NUMBER_OF_PROCESSORS
 
-      - name: Collect DLL
+      - name: Collect artifact
         shell: pwsh
         run: |
-          $dll = Get-ChildItem -Recurse -Path build -Filter "hyper-v-fd.dll" | Select-Object -First 1
-          if (-not $dll) { Write-Error "hyper-v-fd.dll no encontrado"; exit 1 }
-          Write-Host "DLL: $($dll.FullName)"
-          New-Item -ItemType Directory -Force -Path artifact | Out-Null
+          $dll = Get-ChildItem -Recurse build -Filter hyper-v-fd.dll | Select-Object -First 1
+          if (-not $dll) { Write-Error "hyper-v-fd.dll not found"; exit 1 }
+          New-Item -ItemType Directory -Force artifact | Out-Null
           Copy-Item $dll.FullName artifact\
+          Write-Host "OK: $($dll.FullName)"
 
       - name: Upload hyper-v-fd.dll
         uses: actions/upload-artifact@v4
