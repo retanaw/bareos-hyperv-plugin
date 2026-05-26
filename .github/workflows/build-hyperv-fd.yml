@@ -59,12 +59,16 @@ jobs:
       - name: Configure CMake (Ninja single-config)
         shell: pwsh
         run: |
+          # GIT_DESCRIBE_VERSION activa el bloque de version en BareosExtractVersionInfo.cmake
+          # GIT_COMMIT_TIMESTAMP es requerido para las fechas del binario
+          $ts = [int][double]::Parse((Get-Date -UFormat %s))
           cmake -B build -S . `
             -G Ninja `
             -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" `
             -DVCPKG_TARGET_TRIPLET="x64-windows" `
             -DCMAKE_BUILD_TYPE=Release `
-            -DVERSION_STRING=25.0.4 `
+            -DGIT_DESCRIBE_VERSION=25.0.4 `
+            -DGIT_COMMIT_TIMESTAMP=$ts `
             -DENABLE_PYTHON=OFF `
             -DENABLE_BARRI=OFF `
             -DENABLE_TESTING=OFF `
