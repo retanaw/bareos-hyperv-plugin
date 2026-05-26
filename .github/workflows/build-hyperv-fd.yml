@@ -1,4 +1,4 @@
-name: Build hyper-v-fd.dll
+name: Extract hyper-v-fd.dll from official bareos installer
 
 on:
   workflow_dispatch:
@@ -6,62 +6,39 @@ on:
     branches: [main]
 
 jobs:
-  build:
+  extract:
     runs-on: windows-2022
 
     steps:
-      - name: Checkout this repo
-        uses: actions/checkout@v4
-        with:
-          path: plugin-repo
-
-      - name: Checkout bareos/bareos (headers + source)
-        uses: actions/checkout@v4
-        with:
-          repository: bareos/bareos
-          ref: master
-          fetch-depth: 1
-          path: bareos-src
-
-      - name: Setup MSVC
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x64
-
-      - name: Install vcpkg deps (pthreads + jansson only)
+      - name: Download official bareos Windows installer
         shell: pwsh
         run: |
-          vcpkg install pthreads:x64-windows jansson:x64-windows --no-binarycaching
-          Write-Host "vcpkg OK"
+          $url = "https://download.bareos.org/current/windows/Bareos-25.0.4~pre142.0b3da8792-x64-Release.exe"
+          Invoke-WebRequest -Uri $url -OutFile bareos-installer.exe -UseBasicParsing
+          Write-Host "Downloaded: $((Get-Item bareos-installer.exe).Length) bytes"
 
-      - name: Generate config.h for Windows MSVC
+      - name: Extract installer with 7-zip
         shell: pwsh
         run: |
-          python plugin-repo/gen_config_h.py `
-            bareos-src/core/src/include/config.h.in `
-            bareos-build/include/config.h
-          Get-Content bareos-build/include/config.h | Select-Object -First 15
+          # 7-zip is pre-installed on windows-2022 runners
+          & "C:\Program Files\7-Zip\7z.exe" x bareos-installer.exe -oinstaller-contents -y
+          Write-Host "Extracted files:"
+          Get-ChildItem -Recurse installer-contents | Where-Object { $_.Name -like "*.dll" } | Select-Object FullName
 
-      - name: Configure CMake (standalone)
+      - name: Find hyper-v-fd.dll
         shell: pwsh
         run: |
-          cmake -B build -S plugin-repo -G Ninja `
-            "-DCMAKE_BUILD_TYPE=Release" `
-            "-DBAREOS_SRC=${{ github.workspace }}\bareos-src" `
-            "-DBAREOS_BUILD=${{ github.workspace }}\bareos-build"
-
-      - name: Build hyper-v-fd.dll
-        shell: pwsh
-        run: cmake --build build --target hyper-v-fd -j $env:NUMBER_OF_PROCESSORS
-
-      - name: Collect artifact
-        shell: pwsh
-        run: |
-          $dll = Get-ChildItem -Recurse build -Filter hyper-v-fd.dll | Select-Object -First 1
-          if (-not $dll) { Write-Error "hyper-v-fd.dll not found"; exit 1 }
+          $dll = Get-ChildItem -Recurse installer-contents -Filter "hyper-v-fd.dll" | Select-Object -First 1
+          if (-not $dll) {
+            Write-Host "hyper-v-fd.dll not found in top level, trying nested extraction..."
+            # NSIS installers sometimes have a nested archive
+            Get-ChildItem installer-contents | Select-Object Name, Length
+            exit 1
+          }
+          Write-Host "FOUND: $($dll.FullName)"
           New-Item -ItemType Directory -Force artifact | Out-Null
           Copy-Item $dll.FullName artifact\
-          Write-Host "OK: $($dll.FullName)"
+          Write-Host "Size: $($dll.Length) bytes"
 
       - name: Upload hyper-v-fd.dll
         uses: actions/upload-artifact@v4
